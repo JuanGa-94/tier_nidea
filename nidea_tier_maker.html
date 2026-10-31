@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tier List Maker Minimalista</title>
+  
+  <!-- Importación de Fuente Poppins desde Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome para iconos -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    /* ==========================================================================
+       === 1. PALETA DE COLORES Y ESTILOS DE FUENTE (MODIFICA AQUÍ TUS COLORES) ===
+       ========================================================================== */
+    :root {
+      /* Fuente global de la aplicación */
+      --font-primary: 'Poppins', sans-serif;
+
+      /* Color de texto principal y secundario */
+      --color-text-main: #f8fafc;        /* Texto blanco/gris claro */
+      --color-text-muted: #94a3b8;       /* Texto tenue para instrucciones */
+      --color-tier-title: #0f172a;       /* Texto en etiquetas de categorías */
+
+      /* Fondo de los contenedores y tarjetas (Glassmorphism) */
+      --bg-card-glass: rgba(15, 23, 42, 0.75); /* Fondo oscuro translúcido */
+      --bg-tier-row: rgba(30, 41, 59, 0.7);     /* Fondo de la zona de drop en cada fila */
+      --bg-tier-hover: rgba(51, 65, 85, 0.9);   /* Color al pasar un elemento por encima */
+
+      /* Colores por defecto de los Tiers iniciales */
+      --tier-color-s: #ff7f7f; /* Rojo pastel S */
+      --tier-color-a: #ffbf7f; /* Naranja pastel A */
+      --tier-color-b: #ffdf7f; /* Amarillo pastel B */
+      --tier-color-c: #bfff7f; /* Verde pastel C */
+      --tier-color-d: #7fffcc; /* Celeste pastel D */
+      --tier-color-e: #7faaff; /* Azul pastel E */
+    }
+
+    /* ==========================================================================
+       === 2. IMAGEN DE FONDO DE LA APLICACIÓN (CAMBIA LA URL O ESTILO AQUÍ) ===
+       ========================================================================== */
+    body {
+      font-family: var(--font-primary);
+      color: var(--color-text-main);
+      min-height: 100vh;
+      margin: 0;
+      padding: 0;
+
+      /* 
+        >>> CAMBIA ESTA URL POR LA RUTA DE TU IMAGEN LOCAL O EN LÍNEA <<<
+        Ejemplo local: background-image: url('mi-imagen-de-fondo.jpg');
+      */
+      background-image: url(fondo_tier.jpg);
+      
+      background-size: cover;
+      background-position: center;
+      background-attachment: fixed;
+      background-repeat: no-repeat;
+    }
+
+
+
+    /* Estilos de bordes redondeados y glassmorphism en contenedores */
+    .glass-card {
+      background: var(--bg-card-glass);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.034);
+      border-radius: 1.5rem;
+    }
+
+    /* Zona de soltado dentro de las filas de categorías */
+    .tier-dropzone {
+      background-color: var(--bg-tier-row);
+      transition: background-color 0.2s ease, border-color 0.2s ease;
+    }
+
+    /* Efecto visual al arrastrar una imagen sobre una categoría */
+    .tier-dropzone.drag-over {
+      background-color: var(--bg-tier-hover);
+      border-color: #38bdf8 !important;
+    }
+
+    /* Estilo de los items/imágenes arrastrambles */
+    .tier-item {
+      cursor: grab;
+      user-select: none;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    
+    .tier-item:active {
+      cursor: grabbing;
+    }
+
+    .tier-item:hover {
+      transform: scale(1.04);
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
+    }
+
+    .tier-item.dragging {
+      opacity: 0.4;
+    }
+
+    /* Scrollbar personalizada minimalista */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.5);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.4);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(148, 163, 184, 0.7);
+    }
+  </style>
+</head>
+<body class="antialiased selection:bg-indigo-500 selection:text-white">
+  
+  <div class="body-overlay py-8 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-5xl mx-auto space-y-6">
+      
+      <!-- ENCABEZADO DE LA APLICACIÓN -->
+      <header class="glass-card p-6 text-center shadow-2xl relative overflow-hidden">
+        <div class="relative z-10 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div class="text-left">
+            <h1 id="tier-list-title" class="text-3xl font-extrabold tracking-tight text-white flex items-center gap-2 group cursor-pointer" onclick="editTitle()">
+              <span>Mi Tier List Personalizada</span>
+              <i class="fa-solid fa-pen text-sm text-slate-400 group-hover:text-sky-400 transition-colors"></i>
+            </h1>
+            <p class="text-slate-400 text-sm mt-1">Arrastra y suelta imágenes para organizarlas en tus categorías.</p>
+          </div>
+          
+          <!-- Botones de Acción Global -->
+          <div class="flex flex-wrap gap-2">
+            <button onclick="addNewTier()" class="px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white font-medium rounded-xl text-sm flex items-center gap-2 shadow-lg transition-all active:scale-95">
+              <i class="fa-solid fa-plus"></i> Añadir Tier
+            </button>
+            <button onclick="resetApp()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 font-medium rounded-xl text-sm flex items-center gap-2 shadow-lg transition-all active:scale-95">
+              <i class="fa-solid fa-rotate-left"></i> Reiniciar
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <!-- SECCIÓN PRINCIPAL: TABLA DE TIERS -->
+      <main id="tier-container" class="glass-card p-4 sm:p-6 shadow-2xl space-y-3">
+        <!-- Las filas de categorías se renderizan dinámicamente desde JS -->
+      </main>
+
+      <!-- BANCO DE IMÁGENES / ZONA DE CARGA (POOL) -->
+      <section class="glass-card p-6 shadow-2xl space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-700/60 pb-4">
+          <div>
+            <h2 class="text-xl font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-images text-sky-400"></i> Banco de Imágenes
+            </h2>
+            <p class="text-slate-400 text-xs mt-0.5">Sube tus fotos o arrástralas de vuelta aquí si deseas quitarlas de un tier.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="document.getElementById('file-input').click()" class="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white font-medium rounded-xl text-sm flex items-center gap-2 shadow-lg transition-all active:scale-95">
+              <i class="fa-solid fa-upload"></i> Cargar Imágenes
+            </button>
+            <button onclick="clearPool()" class="px-3 py-2 bg-rose-900/40 hover:bg-rose-800/60 text-rose-300 font-medium rounded-xl text-sm flex items-center gap-1.5 transition-all">
+              <i class="fa-solid fa-trash-can"></i> Limpiar
+            </button>
+            <input type="file" id="file-input" multiple accept="image/*" class="hidden" onchange="handleFileSelect(event)">
+          </div>
+        </div>
+
+        <!-- Zona Dropzone para Cargar Archivos Locales o devolver items -->
+        <div 
+          id="image-pool" 
+          class="tier-dropzone min-h-[140px] p-4 rounded-2xl border-2 border-dashed border-slate-600/60 flex flex-wrap gap-3 items-center justify-center sm:justify-start transition-all"
+          ondragover="handleDragOver(event)"
+          ondragleave="handleDragLeave(event)"
+          ondrop="handleDropToPool(event)"
+        >
+          <!-- Mensaje placeholder cuando el banco está vacío -->
+          <div id="empty-pool-msg" class="w-full text-center py-6 text-slate-400 cursor-pointer" onclick="document.getElementById('file-input').click()">
+            <i class="fa-solid fa-cloud-arrow-up text-4xl mb-2 text-slate-500"></i>
+            <p class="text-sm font-medium">Arrastra tus archivos de imagen aquí o haz clic para seleccionarlos</p>
+            <p class="text-xs text-slate-500 mt-1">Soporta PNG, JPG, WEBP, GIF</p>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <!-- MODAL DE EDICIÓN DE CATEGORÍA -->
+  <div id="edit-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-200">
+    <div class="glass-card w-full max-w-md p-6 m-4 shadow-2xl relative">
+      <h3 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
+        <i class="fa-solid fa-sliders text-sky-400"></i> Editar Categoría
+      </h3>
+      
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">Nombre de la Categoría</label>
+          <input type="text" id="edit-tier-name" class="w-full px-4 py-2.5 bg-slate-800/80 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-sky-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">Color de Fondo</label>
+          <div class="flex gap-3 items-center">
+            <input type="color" id="edit-tier-color" class="w-12 h-10 bg-transparent rounded-lg cursor-pointer border-0">
+            <span id="color-hex-val" class="text-sm font-mono text-slate-400">#000000</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 mt-6">
+        <button onclick="closeEditModal()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-medium rounded-xl transition-all">Cancelar</button>
+        <button onclick="saveTierEdit()" class="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white text-sm font-medium rounded-xl transition-all">Guardar Cambios</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT PRINCIPAL -->
+  <script>
+    /* ==========================================================================
+       === ESTADO DE LA APLICACIÓN Y DATOS INICIALES ===
+       ========================================================================== */
+    
+    // Categorías por defecto iniciales
+    let tiers = [
+      { id: 'tier-s', name: 'S', color: '#ff7f7f' },
+      { id: 'tier-a', name: 'A', color: '#ffbf7f' },
+      { id: 'tier-b', name: 'B', color: '#ffdf7f' },
+      { id: 'tier-c', name: 'C', color: '#bfff7f' },
+      { id: 'tier-d', name: 'D', color: '#7fffcc' },
+      { id: 'tier-e', name: 'E', color: '#7faaff' }
+    ];
+
+    let currentEditingTierId = null;
+    let draggedElement = null;
+
+    /* ==========================================================================
+       === RENDERIZADO Y DIBUJO DE INTERFAZ ===
+       ========================================================================== */
+
+    // Inicializar la App al cargar el documento
+    document.addEventListener('DOMContentLoaded', () => {
+      renderTiers();
+      setupGlobalDragEvents();
+    });
+
+    // Renderizar todas las filas de la Tier List
+    function renderTiers() {
+      const container = document.getElementById('tier-container');
+      container.innerHTML = '';
+
+      tiers.forEach((tier, index) => {
+        const row = document.createElement('div');
+        row.className = 'flex flex-col sm:flex-row items-stretch rounded-2xl overflow-hidden border border-slate-700/50 shadow-md group transition-all';
+        row.dataset.id = tier.id;
+
+        row.innerHTML = `
+          <!-- Etiqueta con nombre del Tier -->
+          <div 
+            class="sm:w-32 min-h-[70px] sm:min-h-[90px] flex items-center justify-center p-3 text-center font-bold text-2xl tracking-wide shrink-0 shadow-inner relative"
+            style="background-color: ${tier.color}; color: var(--color-tier-title);"
+          >
+            <span class="break-all drop-shadow-sm">${escapeHtml(tier.name)}</span>
+          </div>
+
+          <!-- Zona de suelta/dropzone de la categoría -->
+          <div 
+            class="tier-dropzone flex-1 p-3 flex flex-wrap items-center gap-3 min-h-[70px] sm:min-h-[90px]"
+            ondragover="handleDragOver(event)"
+            ondragleave="handleDragLeave(event)"
+            ondrop="handleDropToTier(event, '${tier.id}')"
+          >
+            <!-- Las imágenes soltadas irán dentro de este espacio -->
+          </div>
+
+          <!-- Acciones de fila (Mover, Editar, Eliminar) -->
+          <div class="bg-slate-900/80 sm:w-14 flex sm:flex-col items-center justify-center gap-1 p-2 border-t sm:border-t-0 sm:border-l border-slate-700/50">
+            <button onclick="moveTier(${index}, -1)" title="Mover arriba" class="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700/60 rounded-lg transition-colors">
+              <i class="fa-solid fa-chevron-up text-xs"></i>
+            </button>
+            <button onclick="openEditModal('${tier.id}')" title="Editar categoría" class="p-1.5 text-slate-400 hover:text-sky-400 hover:bg-slate-700/60 rounded-lg transition-colors">
+              <i class="fa-solid fa-gear text-xs"></i>
+            </button>
+            <button onclick="deleteTier('${tier.id}')" title="Eliminar categoría" class="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-700/60 rounded-lg transition-colors">
+              <i class="fa-solid fa-trash text-xs"></i>
+            </button>
+            <button onclick="moveTier(${index}, 1)" title="Mover abajo" class="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700/60 rounded-lg transition-colors">
+              <i class="fa-solid fa-chevron-down text-xs"></i>
+            </button>
+          </div>
+        `;
+
+        container.appendChild(row);
+      });
+    }
+
+    /* ==========================================================================
+       === LÓGICA DE CARGA DE ARCHIVOS E IMÁGENES ===
+       ========================================================================== */
+
+    // Manejar selección mediante botón/explorador de archivos
+    function handleFileSelect(event) {
+      const files = Array.from(event.target.files);
+      processFiles(files);
+      event.target.value = ''; // Limpiar selector
+    }
+
+    // Procesar archivos recibidos
+    function processFiles(files) {
+      files.forEach(file => {
+        if (!file.type.startsWith('image/')) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          createImageItem(e.target.result);
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // Crear elemento DOM de la imagen arrastrable
+    function createImageItem(src) {
+      const pool = document.getElementById('image-pool');
+      const emptyMsg = document.getElementById('empty-pool-msg');
+      if (emptyMsg) emptyMsg.classList.add('hidden');
+
+      const imgWrapper = document.createElement('div');
+      imgWrapper.className = 'tier-item relative w-20 h-20 rounded-xl overflow-hidden shadow-lg border border-slate-600/80 bg-slate-800 group';
+      imgWrapper.draggable = true;
+      imgWrapper.id = 'img-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5);
+
+      imgWrapper.innerHTML = `
+        <img src="${src}" class="w-full h-full object-cover pointer-events-none" alt="Item Tier">
+        <button onclick="removeImageItem(this)" class="absolute top-1 right-1 bg-black/70 hover:bg-rose-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-all">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      `;
+
+      // Eventos Drag and Drop para el item
+      imgWrapper.addEventListener('dragstart', handleItemDragStart);
+      imgWrapper.addEventListener('dragend', handleItemDragEnd);
+
+      pool.appendChild(imgWrapper);
+    }
+
+    // Eliminar una imagen en concreto
+    function removeImageItem(button) {
+      const item = button.closest('.tier-item');
+      if (item) {
+        item.remove();
+        checkEmptyPool();
+      }
+    }
+
+    // Verificar si el banco está vacío para mostrar mensaje
+    function checkEmptyPool() {
+      const pool = document.getElementById('image-pool');
+      const items = pool.querySelectorAll('.tier-item');
+      const emptyMsg = document.getElementById('empty-pool-msg');
+      if (items.length === 0 && emptyMsg) {
+        emptyMsg.classList.remove('hidden');
+      }
+    }
+
+    // Limpiar todo el banco de imágenes
+    function clearPool() {
+      const pool = document.getElementById('image-pool');
+      const items = pool.querySelectorAll('.tier-item');
+      items.forEach(item => item.remove());
+      checkEmptyPool();
+    }
+
+    /* ==========================================================================
+       === EVENTOS HTML5 DRAG & DROP ===
+       ========================================================================== */
+
+    function handleItemDragStart(e) {
+      draggedElement = this;
+      this.classList.add('dragging');
+      e.dataTransfer.setData('text/plain', this.id);
+      e.dataTransfer.effectAllowed = 'move';
+    }
+
+    function handleItemDragEnd(e) {
+      this.classList.remove('dragging');
+      draggedElement = null;
+      document.querySelectorAll('.tier-dropzone').forEach(zone => {
+        zone.classList.remove('drag-over');
+      });
+    }
+
+    function handleDragOver(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      const dropzone = e.currentTarget;
+      if (!dropzone.classList.contains('drag-over')) {
+        dropzone.classList.add('drag-over');
+      }
+    }
+
+    function handleDragLeave(e) {
+      const dropzone = e.currentTarget;
+      dropzone.classList.remove('drag-over');
+    }
+
+    // Soltar en una categoría
+    function handleDropToTier(e, tierId) {
+      e.preventDefault();
+      const dropzone = e.currentTarget;
+      dropzone.classList.remove('drag-over');
+
+      // Si se arrastran archivos externos directamente desde el ordenador
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        Array.from(e.dataTransfer.files).forEach(file => {
+          if (file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+              createImageItemInZone(event.target.result, dropzone);
+            };
+            reader.readAsDataURL(file);
+          }
+        });
+        return;
+      }
+
+      // Si se arrastra un elemento de la app
+      if (draggedElement) {
+        dropzone.appendChild(draggedElement);
+        checkEmptyPool();
+      }
+    }
+
+    // Soltar de vuelta en el Banco de imágenes (Pool)
+    function handleDropToPool(e) {
+      e.preventDefault();
+      const pool = document.getElementById('image-pool');
+      pool.classList.remove('drag-over');
+
+      // Archivos externos soltados directamente en el banco
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        processFiles(Array.from(e.dataTransfer.files));
+        return;
+      }
+
+      if (draggedElement) {
+        pool.appendChild(draggedElement);
+        checkEmptyPool();
+      }
+    }
+
+    // Helper para crear imagen directamente en una zona
+    function createImageItemInZone(src, container) {
+      const emptyMsg = document.getElementById('empty-pool-msg');
+      if (emptyMsg) emptyMsg.classList.add('hidden');
+
+      const imgWrapper = document.createElement('div');
+      imgWrapper.className = 'tier-item relative w-20 h-20 rounded-xl overflow-hidden shadow-lg border border-slate-600/80 bg-slate-800 group';
+      imgWrapper.draggable = true;
+      imgWrapper.id = 'img-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5);
+
+      imgWrapper.innerHTML = `
+        <img src="${src}" class="w-full h-full object-cover pointer-events-none" alt="Item Tier">
+        <button onclick="removeImageItem(this)" class="absolute top-1 right-1 bg-black/70 hover:bg-rose-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-all">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      `;
+
+      imgWrapper.addEventListener('dragstart', handleItemDragStart);
+      imgWrapper.addEventListener('dragend', handleItemDragEnd);
+
+      container.appendChild(imgWrapper);
+    }
+
+    function setupGlobalDragEvents() {
+      // Prevenir comportamiento por defecto al arrastrar archivos fuera de la app
+      window.addEventListener('dragover', (e) => e.preventDefault(), false);
+      window.addEventListener('drop', (e) => e.preventDefault(), false);
+    }
+
+    /* ==========================================================================
+       === GESTIÓN DE CATEGORÍAS (AÑADIR, EDITAR, ELIMINAR, REORDENAR) ===
+       ========================================================================== */
+
+    function addNewTier() {
+      const name = prompt('Nombre de la nueva categoría:', 'Nuevo Tier');
+      if (!name || name.trim() === '') return;
+
+      // Colores pastel por defecto aleatorios
+      const defaultColors = ['#ff7f7f', '#ffbf7f', '#ffdf7f', '#bfff7f', '#7fffcc', '#7faaff', '#d47fff', '#ff7fda'];
+      const randomColor = defaultColors[Math.floor(Math.random() * defaultColors.length)];
+
+      const newTier = {
+        id: 'tier-' + Date.now(),
+        name: name.trim(),
+        color: randomColor
+      };
+
+      tiers.push(newTier);
+      renderTiers();
+    }
+
+    function deleteTier(id) {
+      if (tiers.length <= 1) {
+        alert('Debes mantener al menos una categoría en el Tier List.');
+        return;
+      }
+
+      // Mover los elementos de esta categoría de vuelta al banco antes de eliminar
+      const row = document.querySelector(`[data-id="${id}"]`);
+      if (row) {
+        const dropzone = row.querySelector('.tier-dropzone');
+        const pool = document.getElementById('image-pool');
+        const items = dropzone.querySelectorAll('.tier-item');
+        
+        items.forEach(item => {
+          pool.appendChild(item);
+        });
+        checkEmptyPool();
+      }
+
+      tiers = tiers.filter(t => t.id !== id);
+      renderTiers();
+    }
+
+    function moveTier(index, direction) {
+      const newIndex = index + direction;
+      if (newIndex < 0 || newIndex >= tiers.length) return;
+
+      const temp = tiers[index];
+      tiers[index] = tiers[newIndex];
+      tiers[newIndex] = temp;
+
+      renderTiers();
+    }
+
+    // Editar Tiers mediante Modal
+    function openEditModal(id) {
+      const tier = tiers.find(t => t.id === id);
+      if (!tier) return;
+
+      currentEditingTierId = id;
+      document.getElementById('edit-tier-name').value = tier.name;
+      document.getElementById('edit-tier-color').value = tier.color;
+      document.getElementById('color-hex-val').textContent = tier.color;
+
+      const modal = document.getElementById('edit-modal');
+      modal.classList.remove('hidden');
+      setTimeout(() => modal.classList.remove('opacity-0'), 10);
+    }
+
+    function closeEditModal() {
+      const modal = document.getElementById('edit-modal');
+      modal.classList.add('opacity-0');
+      setTimeout(() => {
+        modal.classList.add('hidden');
+        currentEditingTierId = null;
+      }, 200);
+    }
+
+    function saveTierEdit() {
+      if (!currentEditingTierId) return;
+
+      const newName = document.getElementById('edit-tier-name').value.trim();
+      const newColor = document.getElementById('edit-tier-color').value;
+
+      if (!newName) return;
+
+      const tier = tiers.find(t => t.id === currentEditingTierId);
+      if (tier) {
+        tier.name = newName;
+        tier.color = newColor;
+      }
+
+      closeEditModal();
+      renderTiers();
+    }
+
+    // Actualizar valor de texto HEX en modal
+    document.getElementById('edit-tier-color').addEventListener('input', (e) => {
+      document.getElementById('color-hex-val').textContent = e.target.value;
+    });
+
+    // Cambiar título de la Tier List
+    function editTitle() {
+      const titleEl = document.getElementById('tier-list-title').querySelector('span');
+      const currentTitle = titleEl.textContent;
+      const newTitle = prompt('Ingresa el nuevo título para tu Tier List:', currentTitle);
+      
+      if (newTitle && newTitle.trim() !== '') {
+        titleEl.textContent = newTitle.trim();
+      }
+    }
+
+    // Reiniciar la App a su estado inicial
+    function resetApp() {
+      if (confirm('¿Estás seguro de reiniciar todo el Tier List? Se perderán las imágenes cargadas.')) {
+        clearPool();
+        tiers = [
+          { id: 'tier-s', name: 'S', color: '#ff7f7f' },
+          { id: 'tier-a', name: 'A', color: '#ffbf7f' },
+          { id: 'tier-b', name: 'B', color: '#ffdf7f' },
+          { id: 'tier-c', name: 'C', color: '#bfff7f' },
+          { id: 'tier-d', name: 'D', color: '#7fffcc' },
+          { id: 'tier-e', name: 'E', color: '#7faaff' }
+        ];
+        document.getElementById('tier-list-title').querySelector('span').textContent = 'Mi Tier List Personalizada';
+        renderTiers();
+      }
+    }
+
+    // Función auxiliar para escapar texto en HTML
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.innerText = text;
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>
